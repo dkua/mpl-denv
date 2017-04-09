@@ -1,0 +1,2 @@
+source `which virtualenvwrapper.sh`
+alias "mplbuild"="cd $HOME/matplotlib && python setup.py build && python setup.py install && cd -"

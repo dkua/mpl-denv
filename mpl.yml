@@ -1,0 +1,87 @@
+---
+- hosts: all
+  sudo: true
+  gather_facts: no
+  pre_tasks:
+    - name: install python for Ansible
+      raw: test -e /usr/bin/python || (apt install -y python-dev)
+      register: output
+      changed_when: output.stdout != ""
+    - name: add dead snakes repo
+      apt_repository: repo='ppa:fkrull/deadsnakes' state=present
+    - name: update apt cache
+      apt: update_cache=yes
+    - name: install build-essential
+      apt: pkg='build-essential' state=latest
+  tasks:
+    - name: update bash
+      apt: pkg={{ item }} state=latest
+      with_items:
+        - bash
+        - bash-completion
+    - name: install zsh
+      apt: pkg={{ item }} state=latest
+      with_items:
+        - zsh
+    - name: set shell
+      shell: chsh -s `which zsh` ubuntu
+    - name: install git
+      apt: pkg=git state=latest
+    - name: install hg
+      apt: pkg={{ item }} state=latest
+      with_items:
+        - mercurial
+    - name: install python
+      apt: pkg={{ item }} state=latest
+      with_items:
+          - python-pip
+          - python-dev
+          - python3.4-dev
+          - python3.5-dev
+          - python3.6-dev
+    - name: install virtualenvwrapper
+      pip: name=virtualenvwrapper
+    - name: install vim
+      apt: pkg={{ item }} state=latest
+      with_items:
+        - vim
+    - name: install x11
+      apt: pkg=xauth state=latest
+    - name: install matplotlib non-python requirements
+      apt: pkg={{ item }} state=latest
+      with_items:
+        - libfreetype6-dev
+        - pkg-config
+        - python-tk
+    - name: clone dotfiles
+      git: repo=https://github.com/dkua/dotfiles.git dest=/home/ubuntu/dotfiles
+      sudo: false
+    - name: copy VM profile
+      copy: src=vm_profile dest=/home/ubuntu/.vm_profile owner=ubuntu group=ubuntu mode=0644
+    - name: copy requirements.txt
+      copy: src=requirements.txt dest=/home/ubuntu/requirements.txt owner=ubuntu group=ubuntu mode=0644
+    - name: pip install requirements
+      pip: requirements=/home/ubuntu/requirements.txt
+    - name: make virtualenvs
+      shell: >
+          executable=/bin/bash
+          source `which virtualenvwrapper.sh` && mkvirtualenv -p {{ item.python }} {{ item.venv }}
+      with_items:
+          - { python: 'python', venv: 'py27' }
+          - { python: 'python3.4', venv: 'py34' }
+          - { python: 'python3.5', venv: 'py35' }
+          - { python: 'python3.6', venv: 'py36' }
+      sudo: false
+    - name: pip install requirements to all venvs
+      shell: >
+          executable=/bin/bash
+          source `which virtualenvwrapper.sh` && allvirtualenv pip install --upgrade pip && allvirtualenv pip install -r /home/ubuntu/requirements.txt
+      sudo: false
+    - name: install dotfiles
+      shell: >
+          executable=/bin/bash
+          cd /home/ubuntu/dotfiles && make base
+      sudo: false
+    - name: clone matplotlib
+      git: repo=https://github.com/dkua/matplotlib.git dest=/home/ubuntu/matplotlib
+      sudo: false
